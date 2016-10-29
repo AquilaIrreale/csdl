@@ -1,5 +1,4 @@
 #include <stdio.h>
-#include <ctype.h>
 #include <string.h>
 
 int main(int argc, char *argv[])
@@ -8,6 +7,6 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    printf("%d\n", argv[1][0]-argv[2][0]);
+    printf("%d\n", argv[2][0]-argv[1][0]);
     return 0;
 }
