@@ -1,16 +1,10 @@
 all: mbr.img boot.bin
 
-mbr.img: stage1.o mbr.ld
-	i686-elf-ld -T mbr.ld -o mbr.img stage1.o
+mbr.img: stage1.asm
+	nasm -f bin -o mbr.img stage1.asm
 
-stage1.o: stage1.s
-	i686-elf-as -o stage1.o stage1.s
-
-boot.bin: stage2.o boot.ld
-	i686-elf-ld -T boot.ld -o boot.bin stage2.o
-
-stage2.o: stage2.s
-	i686-elf-as -o stage2.o stage2.s
+boot.bin: stage2.asm
+	nasm -f bin -o boot.bin stage2.asm
 
 dump: mbr.dump boot.dump
 
