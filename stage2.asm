@@ -20,8 +20,8 @@
 %define ACCESS (ACCESS_BASEMASK | RING0 | RW)
 %define FLAGS  (PAGE_GRAN | SIZE_32)
 
-ORG 0xBE00
-BITS 16
+org 0xBE00
+bits 16
 
 section .text
   ; Print a success message
@@ -38,14 +38,14 @@ section .text
   ; Prepare to enter protected mode
   cli               ; Clear interrupts
   
-  in  byte al,0x70  ; Disable NMI
-  or  byte al,0x80  ;
-  out byte 0x70,al  ;
-
   in  byte al,0x92  ; Enable A20 line (fast A20)
   or  byte al,0x02  ;
   and byte al,~0x01 ;
   out byte 0x92,al  ;
+  
+  in  byte al,0x70  ; Disable NMI
+  or  byte al,0x80  ;
+  out byte 0x70,al  ;
 
   lgdt [gdt_p]      ; Load GDT
 
@@ -57,7 +57,7 @@ section .text
   ; Clear prefetch instruction queue and load 32 bit code segment
   jmp 0x08:load_segments
 
-BITS 32
+bits 32
 
 load_segments:
   ; Load segment selectors
@@ -67,28 +67,51 @@ load_segments:
   mov word fs,ax
   mov word gs,ax
   mov word ss,ax
+  
+  ; Set up temporary stack
+  mov dword esp,stack_bottom
+  
+  ; Debug section
+  push 0x10
+  call cmos_read
+  add esp,4
+  mov edx,eax
+  shr al,4
+  add al,'0'
+  mov ah,0x07
+  mov [0xB8000],ax
+  
+  mov al,dl
+  and al,0x0F
+  add al,'0'
+  mov [0xB8002],ax
 
-  ; Print a success message
-  ;mov byte ah,0x13
-  ;mov byte al,0x01
-  ;mov byte bh,0x00
-  ;mov byte bl,0x07
-  ;mov word cx,10   # String length
-  ;mov byte dh,0x01
-  ;mov byte dl,0x00
-  ;mov word bp,str2
-  ;int 0x10
+  mov ecx,200
+.label:
+  push ecx
+  push dword str3
+  call puts
+  add  esp,4
+  pop  ecx
+  loop .label
 
 hang:
   hlt
   jmp hang
 
-section .data align=4
+%include "vga.asm"
+%include "cmos.asm"
+%include "fdc.asm"
 
+section .data align=4
 ; GDT
+align 8
 gdt_0:
-  ;db "FOOF"
-  times 8 db 0
+; The GDT pointer is packed inside the unused first entry
+gdt_p:
+  dw gdt_end - gdt_0 -1 ; Size of GDT subtracted by 1
+  dd gdt_0
+  align 8
 gdt_1:
   dw LIMIT & 0xFFFF        ; Limit  0-15
   dw BASE  & 0xFFFF        ; Base   0-15
@@ -105,15 +128,17 @@ gdt_2:
   db BASE >> 24            ; Base  24-31
 gdt_end:
 
-; GDT pointer
-gdt_p:
-  dw gdt_end - gdt_0 -1 ; Size of GDT subtracted by 1
-  dd gdt_0
-
 ; DEBUG
 str1:
-  db "STAGE2... START!"
+  db "STAGE2... START!", 0
 str2:
-  db "ALL RIGHT!"
+  db "ALL RIGHT!", 0
+str3:
+  db "TEST TEST PROVA PROVA --- ", 0
+  
+section .stack align=4
+stack_top:
+  times 1024 db 0
+stack_bottom:
 
 
