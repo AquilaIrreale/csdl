@@ -36,7 +36,7 @@ vga_scroll:
   mov byte cl,[vga.cr]    ; Load current row
   movzx ecx,cl            ; Extend it
   sub ecx,VGA_NROWS       ; Subtract number of columns
-  js .end                 ; If the result is negative, no need to scroll
+  js .ret_0               ; If the result is negative, no need to scroll
   inc ecx                 ; Increase the result to get the number of rows
                           ; to scroll (just in case there's more than one)
   mov eax,VGA_NCOLS       ; Load number of columns
@@ -73,8 +73,13 @@ vga_scroll:
 
   pop esi
   pop edi
+  
+.ret_1:
+  mov eax,1                 ; Return 1 (screen has been scrolled)
+  ret
 
-.end:
+.ret_0:
+  xor eax,eax
   ret
 
 ; puts: write a string onscreen
@@ -92,11 +97,11 @@ puts:
   ; Handle special characters  
   cmp dl,0x0A           ; If char is LF, handle accordingly
   jne .not_LF
-  mov byte [vga.cr],0
-  inc byte [vga.cc]
-  
+  mov byte [vga.cc],0
+  inc byte [vga.cr]
+
   call vga_scroll
-  
+
   call com_fb_p
   mov edi,eax           ; Recompute destination address
 
@@ -110,23 +115,26 @@ puts:
   mov [edi],dx
   add edi,2             ; Characters in buffer are two bytes long
 
-.loop_next:
-  inc esi
-
   inc byte [vga.cc]     ; Increase column
+
+.loop_next:
+  inc esi               ; Next character
+  
   cmp byte [vga.cc],VGA_NCOLS
   jl .loop_start        ; If current column exceedes limit do a LF
-  
+
   mov byte [vga.cc],0
   inc byte [vga.cr]
-  
+
   call vga_scroll       ; Scroll the screen if needed
 
+  test eax,eax
+  jz .loop_start        ; If the screen scrolled
+  
   call com_fb_p
   mov edi,eax           ; Recompute destination address
-  
-  jmp .loop_start
 
+  jmp .loop_start
 .loop_end:
 
   ret

@@ -54,7 +54,7 @@ section .text
   or  dword eax,0x01
   mov dword cr0,eax
 
-  ; Clear prefetch instruction queue and load 32 bit code segment
+  ; Clear prefetch queue and load 32 bit code segment
   jmp 0x08:load_segments
 
 bits 32
@@ -86,7 +86,7 @@ load_segments:
   add al,'0'
   mov [0xB8002],ax
 
-  mov ecx,200
+  mov ecx,3
 .label:
   push ecx
   push dword str3
@@ -134,7 +134,7 @@ str1:
 str2:
   db "ALL RIGHT!", 0
 str3:
-  db "TEST TEST PROVA PROVA --- ", 0
+  db "TEST TEST PROVA PROVA --- ", 0x0A, 0
   
 section .stack align=4
 stack_top:
