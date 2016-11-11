@@ -71,6 +71,9 @@ load_segments:
   ; Set up temporary stack
   mov dword esp,stack_bottom
   
+  ; Init VGA
+  call vga_init
+  
   ; Debug section
   push 0x10
   call cmos_read
@@ -86,7 +89,7 @@ load_segments:
   add al,'0'
   mov [0xB8002],ax
 
-  mov ecx,3
+  mov ecx,10000
 .label:
   push ecx
   push dword str3
@@ -94,6 +97,10 @@ load_segments:
   add  esp,4
   pop  ecx
   loop .label
+  
+  push dword str4
+  call puts
+  add  esp,4
 
 hang:
   hlt
@@ -131,11 +138,16 @@ gdt_end:
 ; DEBUG
 str1:
   db "STAGE2... START!", 0
+
 str2:
   db "ALL RIGHT!", 0
+
 str3:
-  db "TEST TEST PROVA PROVA --- ", 0x0A, 0
-  
+  db "TEST TEST PROVA PROVA --- ", 0
+
+str4:
+  db "ALL SAID AND DONE! --- Hello world...", 0
+
 section .stack align=4
 stack_top:
   times 1024 db 0
