@@ -7,6 +7,10 @@ vga:
 .cc:
   db 0
 
+align 4
+.hexmap:
+  db '0123456789ABCDEF'
+
 %define VGA_BASE      0xB8000
 %define VGA_NROWS     25
 %define VGA_NCOLS     80
@@ -130,16 +134,16 @@ upd_curs:
   
   ; Send high byte
   mov dx,VGA_IO_DATA
-  mov al,[esp+1]
+  mov al,[esp + 1]
   out dx,al
   
   add esp,4
 
   ret
 
-; puts: write a string onscreen
+; puts: print a string
 puts:
-  mov esi,[4 + esp]     ; Move argument #1 in edi
+  mov esi,[esp + 4]     ; Move argument #1 in edi
 
   call com_fb_p
   mov edi,eax           ; Load starting destination address in edi
@@ -193,6 +197,59 @@ puts:
 .loop_end:
 
   call upd_curs
+  ret
+
+; putx: print a hexadecimal dumber
+; arg0 = size in bytes
+; arg1 = number (variadic, little endian)
+putx:
+  push ebp
+  mov  ebp,esp
+
+  mov ecx,[ebp + 8] ; Load size
+  xor eax,eax       ; Wipe eax
+  xor edx,edx       ; edx selects the byte (starts from zero)
+  
+  dec esp
+  mov [esp],dl      ; Push a zero on the stack
+
+.loop_start:
+  mov al,[ebp + 12 + edx]   ; Get current byte
+  and al,0x0F               ; Extrapolate low nibble
+  mov al,[vga.hexmap + eax] ; Convert to ascii
+  
+  dec esp
+  mov [esp],al      ; Push the first char on the stack
+  
+  mov al,[ebp + 12 + edx]   ; Get current byte
+  shr al,4                  ; Extrapolate high nibble
+  mov al,[vga.hexmap + eax] ; Convert to ascii
+  
+  dec esp
+  mov [esp],al      ; Push the second char on the stack
+
+  inc edx           ; Select next byte
+  loop .loop_start  ; Repeat ecx times
+
+  sub esp,2
+  mov word [esp],'0x'   ; Push a '0x' at the front
+  mov edx,esp           ; Save a pointer to the beginning
+                        ; of the ascii representation on the stack
+
+  and esp,-0x4      ; Realign the stack
+  
+  push edx          ; Pass the pointer to puts (the ascii values
+  call puts         ; on the stack form a valid c-string)
+  mov esp,ebp       ; Roll back the stack
+
+  pop ebp
+  ret
+
+; putd: print a decimal number
+  push ebp
+  mov  ebp,esp
+  
+  pop ebp
   ret
 
 

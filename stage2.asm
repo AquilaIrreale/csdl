@@ -101,6 +101,11 @@ load_segments:
   push dword str4
   call puts
   add  esp,4
+  
+  push 0x2BADB00F
+  push 4
+  call putx
+  add  esp,8
 
 hang:
   hlt
@@ -137,16 +142,16 @@ gdt_end:
 
 ; DEBUG
 str1:
-  db "STAGE2... START!", 0
+  db 'STAGE2... START!', 0
 
 str2:
-  db "ALL RIGHT!", 0
+  db 'ALL RIGHT!', 0
 
 str3:
-  db "TEST TEST PROVA PROVA --- ", 0
+  db 'TEST TEST PROVA PROVA --- ', 0
 
 str4:
-  db "ALL SAID AND DONE! --- Hello world...", 0
+  db 'ALL SAID AND DONE! --- Hello world... ', 0
 
 section .stack align=4
 stack_top:

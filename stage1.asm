@@ -24,7 +24,7 @@ section .text
 ; OS string ;
   times 0x0003-($-$$) db 0
 
-  db "CIMA    "
+  db 'CIMA    '
 
 ; BPB ;
   times 0x000B-($-$$) db 0
@@ -49,8 +49,8 @@ section .text
   db       0x01     ; Reserved (?)
   db       0x29     ; Extended boot sig.
   dd 0x2E561EF6     ; Volume serial number
-  db "CSD LOADER "  ; Volume label
-  db "FAT12   "     ; File system type
+  db 'CSD LOADER '  ; Volume label
+  db 'FAT12   '     ; File system type
 
 ; Text ;
   times 0x003E-($-$$) db 0
@@ -215,9 +215,9 @@ hang:
 
 ; Data ;
 errstring:
-  db "ERROR CODE #0"
+  db 'ERROR CODE #0'
 stage2filename:
-  db "BOOT    BIN" ; I.e. boot.bin
+  db 'BOOT    BIN' ; I.e. boot.bin
 
 ; Magic number ;
   times 0x01FE-($-$$) db 0
