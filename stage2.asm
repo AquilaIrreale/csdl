@@ -106,6 +106,22 @@ load_segments:
   push 4
   call putx
   add  esp,8
+  
+  push dword str5
+  call puts
+  add esp,4
+  
+  push 0x2BADB00F
+  call putu
+  add esp,4
+  
+  push dword str6
+  call puts
+  add esp,4
+  
+  push dword 0
+  call putu
+  add esp,4
 
 hang:
   hlt
@@ -152,6 +168,12 @@ str3:
 
 str4:
   db 'ALL SAID AND DONE! --- Hello world... ', 0
+
+str5:
+  db ' == ', 0
+
+str6:
+  db ' --- ', 0
 
 section .stack align=4
 stack_top:

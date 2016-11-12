@@ -211,7 +211,7 @@ putx:
   xor edx,edx       ; edx selects the byte (starts from zero)
   
   dec esp
-  mov [esp],dl      ; Push a zero on the stack
+  mov [esp],dl      ; Push a terminating zero on the stack
 
 .loop_start:
   mov al,[ebp + 12 + edx]   ; Get current byte
@@ -245,9 +245,38 @@ putx:
   pop ebp
   ret
 
-; putd: print a decimal number
+; putu: print an unsigned decimal number
+; arg0 = number (4 bytes)
+putu:
   push ebp
   mov  ebp,esp
+  
+  mov eax,[ebp + 8] ; Load the number in eax
+  mov ecx,10        ; Load divisor in ecx
+  
+  dec esp
+  mov [esp],ch      ; Push a terminating zero on the stack
+  
+.loop_start:
+  xor edx,edx       ; Wipe edx (upper half of the dividend)
+  div ecx           ; Divide edx:eax by ecx
+  
+  add edx,'0'       ; Convert the remainder to an ascii digit
+  
+  dec esp
+  mov [esp],dl      ; Push the digit on the stack
+  
+  test eax,eax
+  jnz .loop_start   ; Loop until eax == 0
+  
+  mov edx,esp       ; Save a pointer to the ascii string
+                    ; that has formed on the stack
+   
+  and esp,-0x4      ; Realing the stack if needed
+  
+  push edx          ; Pass the string to puts
+  call puts
+  mov esp,ebp       ; Roll back the stack
   
   pop ebp
   ret
