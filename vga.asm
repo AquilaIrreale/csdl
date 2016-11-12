@@ -208,42 +208,47 @@ puts:
 putx:
   push ebp
   mov  ebp,esp
+  
+  push ebx                ; Save ebx
+  mov  ebx,vga.hextable   ; Point ebx to the translation table
 
-  mov ecx,[ebp + 8] ; Load size
-  xor eax,eax       ; Wipe eax
-  xor edx,edx       ; edx selects the byte (starts from zero)
+  mov ecx,[ebp + 8]       ; Load size
+  xor eax,eax             ; Wipe eax
+  xor edx,edx             ; edx selects the byte (starts from zero)
   
   dec esp
-  mov [esp],dl      ; Push a terminating zero on the stack
+  mov [esp],dl            ; Push a terminating zero on the stack
 
 .loop_start:
-  mov al,[ebp + 12 + edx]     ; Get current byte
-  and al,0x0F                 ; Extrapolate low nibble
-  mov al,[vga.hextable + eax] ; Convert to ascii
+  mov al,[ebp + 12 + edx] ; Get current byte
+  and al,0x0F             ; Extrapolate low nibble
+  xlat                    ; Convert to ascii
   
   dec esp
-  mov [esp],al      ; Push the first char on the stack
+  mov [esp],al            ; Push the first char on the stack
   
-  mov al,[ebp + 12 + edx]     ; Get current byte
-  shr al,4                    ; Extrapolate high nibble
-  mov al,[vga.hextable + eax] ; Convert to ascii
+  mov al,[ebp + 12 + edx] ; Get current byte
+  shr al,4                ; Extrapolate high nibble
+  xlat                    ; Convert to ascii
   
   dec esp
-  mov [esp],al      ; Push the second char on the stack
+  mov [esp],al            ; Push the second char on the stack
 
-  inc edx           ; Select next byte
-  loop .loop_start  ; Repeat ecx times
+  inc edx                 ; Select next byte
+  loop .loop_start        ; Repeat ecx times
 
   sub esp,2
-  mov word [esp],'0x'   ; Push a '0x' at the front
-  mov edx,esp           ; Save a pointer to the beginning
-                        ; of the ascii representation on the stack
+  mov word [esp],'0x'     ; Push a '0x' at the front
+  mov edx,esp             ; Save a pointer to the beginning
+                          ; of the ascii representation on the stack
 
-  and esp,-0x4      ; Realign the stack
+  and esp,-0x4            ; Realign the stack
   
-  push edx          ; Pass the pointer to puts (the ascii values
-  call puts         ; on the stack form a valid c-string)
-  mov esp,ebp       ; Roll back the stack
+  push edx                ; Pass the pointer to puts (the ascii values
+  call puts               ; on the stack form a valid c-string)
+  mov esp,ebp             ; Roll back the stack
+  
+  mov ebx,[ebp - 4]       ; Restore ebx
 
   pop ebp
   ret
