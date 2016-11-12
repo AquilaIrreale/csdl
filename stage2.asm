@@ -119,8 +119,8 @@ load_segments:
   call puts
   add esp,4
   
-  push dword 0
-  call putu
+  push dword -115200
+  call putd
   add esp,4
 
 hang:

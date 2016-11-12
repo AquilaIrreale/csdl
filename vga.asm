@@ -8,8 +8,11 @@ vga:
   db 0
 
 align 4
-.hexmap:
+.hextable:
   db '0123456789ABCDEF'
+
+.minus:
+  db '-', 0
 
 %define VGA_BASE      0xB8000
 %define VGA_NROWS     25
@@ -214,16 +217,16 @@ putx:
   mov [esp],dl      ; Push a terminating zero on the stack
 
 .loop_start:
-  mov al,[ebp + 12 + edx]   ; Get current byte
-  and al,0x0F               ; Extrapolate low nibble
-  mov al,[vga.hexmap + eax] ; Convert to ascii
+  mov al,[ebp + 12 + edx]     ; Get current byte
+  and al,0x0F                 ; Extrapolate low nibble
+  mov al,[vga.hextable + eax] ; Convert to ascii
   
   dec esp
   mov [esp],al      ; Push the first char on the stack
   
-  mov al,[ebp + 12 + edx]   ; Get current byte
-  shr al,4                  ; Extrapolate high nibble
-  mov al,[vga.hexmap + eax] ; Convert to ascii
+  mov al,[ebp + 12 + edx]     ; Get current byte
+  shr al,4                    ; Extrapolate high nibble
+  mov al,[vga.hextable + eax] ; Convert to ascii
   
   dec esp
   mov [esp],al      ; Push the second char on the stack
@@ -246,7 +249,7 @@ putx:
   ret
 
 ; putu: print an unsigned decimal number
-; arg0 = number (4 bytes)
+; arg0 = number (4 bytes, unsigned)
 putu:
   push ebp
   mov  ebp,esp
@@ -280,5 +283,21 @@ putu:
   
   pop ebp
   ret
+
+; putd: print a signed decimal number
+; arg0 = number (4 bytes, signed)
+putd:
+  mov eax,[esp + 4]
+  test eax,eax
+  jns putu        ; If the number is non negative, just switch to putu
+  
+  ; Else print a minus
+  push vga.minus
+  call puts
+  add  esp,4
+  
+  ; Then negate the number and switch to putu
+  neg dword [esp + 4]
+  jmp putu
 
 
