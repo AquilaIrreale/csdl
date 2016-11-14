@@ -28,7 +28,7 @@ section .text
   mov word sp,stack_top
   
   ; Detect memory
-  call memprobe
+  call mmap_memprobe
 
   ; Prepare to enter protected mode
   cli               ; Clear interrupts
@@ -70,7 +70,7 @@ load_segments:
   call vga_init
   
   ; Adjust memory map
-  call memadj
+  ;call mmap_adj
   
   ; Debug section
   push 0x10
@@ -138,6 +138,12 @@ load_segments:
 .afternomem:
   call puts
   add esp,4
+  
+  push dword 0x0A
+  call putc
+  add esp,4
+  
+  call mmap_print
 
 .hang:
   hlt

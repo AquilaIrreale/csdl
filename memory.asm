@@ -1,14 +1,20 @@
-%define MMAP_SIZE -4
-%define MMAP_BASE  0
-%define MMAP_LEN   8
-%define MMAP_TYPE 16
-%define MMAP_ETYP 20
+%define MMAP_SIZE  -4
+%define MMAP_BASE   0
+%define MMAP_LEN    8
+%define MMAP_TYPE  16
+%define MMAP_EXTRA 20
+
+%define MMAP_BASE_HI (MMAP_BASE + 4)
+%define MMAP_BASE_LO (MMAP_BASE)
+
+%define MMAP_LEN_HI  (MMAP_LEN + 4)
+%define MMAP_LEN_LO  (MMAP_LEN)
 
 section .text
 bits 16
 
-; memprobe: detect memory layout
-memprobe:
+; mmap_memprobe: detect memory layout
+mmap_memprobe:
   push bp
   mov  bp,sp
 
@@ -57,15 +63,15 @@ memprobe:
 
 bits 32
 
-; memadj: parse, adjust and simplify the memory map
+; mmap_adj: parse, adjust and simplify the memory map
 ; Assumes all entries are the same size
-memadj:
+mmap_adj:
   push ebp
   mov  ebp,esp
   sub  esp,8
   
-  %define memadj_a (ebp - 4)
-  %define memadj_b (ebp - 8)
+%define mmap_adj.a (ebp - 4)
+%define mmap_adj.b (ebp - 8)
   
   push ebx
   push edi
@@ -104,26 +110,26 @@ memadj:
   ; Else swap [ebx] and [edi]
   push esi
   
-  mov [memadj_a],ebx
-  mov [memadj_b],edi
+  mov [mmap_adj.a],ebx
+  mov [mmap_adj.b],edi
   
-  mov esi,[memadj_a]
+  mov esi,[mmap_adj.a]
   mov edi,mmap.tmp
   mov ecx,edx
   rep movsb
   
-  mov esi,[memadj_b]
-  mov edi,[memadj_a]
+  mov esi,[mmap_adj.b]
+  mov edi,[mmap_adj.a]
   mov ecx,edx
   rep movsb
   
   mov esi,mmap.tmp
-  mov edi,[memadj_b]
+  mov edi,[mmap_adj.b]
   mov ecx,edx
   rep movsb
   
   pop esi
-  mov edi,[memadj_b]
+  mov edi,[mmap_adj.b]
 
 .outer_next:
   add edi,edx
@@ -139,7 +145,71 @@ memadj:
 
   add esp,8
   pop ebp
-  ret  
+  ret
+
+; print_mmap: print the memory map
+mmap_print:
+  push ebx
+  mov ebx,(mmap + 4)
+  
+.loop_start:
+  mov eax,[ebx + MMAP_SIZE]
+  
+  test eax,eax
+  jz .return
+  
+  push eax
+
+  push dword [ebx + MMAP_BASE_HI]
+  push dword [ebx + MMAP_BASE_LO]
+  push 8
+  call putx
+  add esp,12
+  
+  push ' '
+  call putc
+  add esp,4
+  
+  push dword [ebx + MMAP_LEN_HI]
+  push dword [ebx + MMAP_LEN_LO]
+  push 8
+  call putx
+  add esp,12
+  
+  push ' '
+  call putc
+  add esp,4
+  
+  push dword [ebx + MMAP_TYPE]
+  push 4
+  call putx
+  add esp,8
+  
+  mov eax,[esp]
+  cmp eax,20
+  jbe .next
+  
+  push ' '
+  call putc
+  add esp,4
+  
+  push dword [ebx + MMAP_EXTRA]
+  push 4
+  call putx
+  add esp,8
+  
+.next:
+  push 0x0A
+  call putc
+  add esp,4
+  
+  pop eax
+  lea ebx,[ebx + eax + 4]
+  jmp .loop_start
+  
+.return:
+  pop ebx
+  ret
 
 section .data
 align 8
@@ -149,7 +219,7 @@ mmap:                       ; mmap has space for 16 wide (24 bytes)
   dd 0                      ; A zero-terminator
 
 .tmp:
-  times 24 db 0             ; Swapping space for memadj
+  times 24 db 0             ; Swapping space for mmap_adj
 
 
 
