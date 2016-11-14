@@ -28,6 +28,8 @@ align 4
 %define VGA_MISC_IOAS 0x01
 
 section .text
+bits 32
+
 ; vga_init: vga init routine
 vga_init:
   ; Init the CRT controller addersses

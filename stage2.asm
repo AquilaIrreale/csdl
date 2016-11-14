@@ -24,16 +24,11 @@ org 0xBE00
 bits 16
 
 section .text
-  ; Print a success message
-  mov byte ah,0x13
-  mov byte al,0x01
-  mov byte bh,0x00
-  mov byte bl,0x07
-  mov word cx,LEN  ; String length
-  mov byte dh,0x00
-  mov byte dl,0x00
-  mov word bp,str1
-  int 0x10
+  ; Prepare a temporary stack
+  mov word sp,stack_top
+  
+  ; Detect memory
+  call memprobe
 
   ; Prepare to enter protected mode
   cli               ; Clear interrupts
@@ -68,8 +63,8 @@ load_segments:
   mov word gs,ax
   mov word ss,ax
   
-  ; Set up temporary stack
-  mov dword esp,stack_bottom
+  ; Reset the stack
+  mov dword esp,stack_top
   
   ; Init VGA
   call vga_init
@@ -92,13 +87,13 @@ load_segments:
   mov ecx,10000
 .label:
   push ecx
-  push dword str3
+  push str3
   call puts
   add  esp,4
   pop  ecx
   loop .label
   
-  push dword str4
+  push str4
   call puts
   add  esp,4
   
@@ -107,7 +102,7 @@ load_segments:
   call putx
   add  esp,8
   
-  push dword str5
+  push str5
   call puts
   add esp,4
   
@@ -115,18 +110,37 @@ load_segments:
   call putu
   add esp,4
   
-  push dword str6
+  push str6
   call puts
   add esp,4
   
-  push dword -115200
+  push -115200
   call putd
   add esp,4
+  
+  push str7
+  call puts
+  add esp,4
+  
+  mov eax,[mmap]
+  test eax,eax
+  jz .nomem
+  
+  push str8
+  jmp .afternomem
+  
+.nomem:
+  push str9
 
-hang:
+.afternomem:
+  call puts
+  add esp,4
+
+.hang:
   hlt
-  jmp hang
+  jmp .hang
 
+%include "memory.asm"
 %include "vga.asm"
 %include "cmos.asm"
 %include "fdc.asm"
@@ -175,9 +189,18 @@ str5:
 str6:
   db ' --- ', 0
 
+str7:
+  db 0x0A, 'Memory found: ', 0
+
+str8:
+  db 'YES', 0
+
+str9:
+  db 'NO', 0
+
 section .stack align=4
-stack_top:
-  times 1024 db 0
 stack_bottom:
+  times 1024 db 0
+stack_top:
 
 

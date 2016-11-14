@@ -3,7 +3,7 @@ all: mbr.img boot.bin dump
 mbr.img: stage1.asm
 	nasm -f bin -o mbr.img stage1.asm
 
-boot.bin: stage2.asm vga.asm cmos.asm fdc.asm
+boot.bin: stage2.asm vga.asm cmos.asm fdc.asm memory.asm
 	nasm -f bin -o boot.bin stage2.asm
 
 dump: mbr.dump boot.dump
