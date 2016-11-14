@@ -69,6 +69,9 @@ load_segments:
   ; Init VGA
   call vga_init
   
+  ; Adjust memory map
+  call memadj
+  
   ; Debug section
   push 0x10
   call cmos_read
