@@ -147,6 +147,7 @@ upd_curs:
   ret
 
 ; puts: print a string
+; arg0 = pointer to string
 puts:
   mov esi,[esp + 4]     ; Move argument #1 in edi
 
@@ -204,7 +205,16 @@ puts:
   call upd_curs
   ret
 
-; putx: print a hexadecimal dumber
+; putc: print a single character
+; arg0 = char
+putc:
+  lea  eax,[esp + 4]
+  push eax
+  call puts
+  add  esp,4
+  ret
+
+; putx: print a hexadecimal number
 ; arg0 = size in bytes
 ; arg1 = number (variadic, little endian)
 putx:
