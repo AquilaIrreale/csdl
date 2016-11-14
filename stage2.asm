@@ -70,7 +70,7 @@ load_segments:
   call vga_init
   
   ; Adjust memory map
-  ;call mmap_adj
+  call mmap_adj
   
   ; Debug section
   push 0x10

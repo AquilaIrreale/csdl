@@ -68,38 +68,50 @@ bits 32
 mmap_adj:
   push ebp
   mov  ebp,esp
-  sub  esp,8
+  sub  esp,12
   
-%define mmap_adj.a (ebp - 4)
-%define mmap_adj.b (ebp - 8)
+%define mmap_adj.a (ebp -  4)
+%define mmap_adj.b (ebp -  8)
+%define mmap_adj.s (ebp - 12)
   
   push ebx
   push edi
   push esi
 
-  mov edx,[mmap]      ; Load size
+  mov edx,[mmap]        ; Load size
   test edx,edx
-  jz .return          ; The first entry has zero size, do nothing
+  jz .return            ; The first entry has zero size, do nothing
   
-  mov edi,(mmap + 4)  ; Load starting destination
+  mov [mmap_adj.s],edx  ; Store size
+  
+  mov edi,(mmap + 4)    ; Load starting destination
   
   ; Sort by base address
 .outer_loop:
-  mov esi,edi         ; Load starting source
-  mov ecx,-1          ; Load UINT_MAX in ecx
+  mov esi,edi     ; Load starting source
+  mov ecx,-1      ; Load UINT_MAX in ecx and edx
+  mov edx,-1      ;
   
 .inner_loop:
-  mov eax,[esi + MMAP_BASE] ; Load current entry base address
+  mov eax,[esi + MMAP_BASE_HI]  ; Load current entry base address
+                                ; (higher half)
+  cmp eax,edx
+  ja .inner_next
+  jb .save_cur
   
-  cmp eax,ecx     ; If current entry is not below current
-  jnb .inner_next ; minimum, skip to the next one
-  
-  mov ecx,eax ; Else set the new minimum
-  mov ebx,esi ; and store a pointer to current entry
+  mov eax,[esi + MMAP_BASE_LO]  ; Load current entry base address
+                                ; (lower half)
+  cmp eax,ecx
+  jnb .inner_next
+
+.save_cur:
+  mov ecx,[esi + MMAP_BASE_LO] ; Else set the new minimum
+  mov edx,[esi + MMAP_BASE_HI] ; Else set the new minimum
+  mov ebx,esi                  ; and store a pointer to current entry
   
 .inner_next:
-  add esi,edx ; Advance to the next entry
-  add esi,4   ;
+  add esi,[mmap_adj.s] ; Advance to the next entry
+  add esi,4             ;
   
   cmp dword [esi + MMAP_SIZE],0 ;  Loop until the first empty entry
   jne .inner_loop               ;
@@ -115,24 +127,24 @@ mmap_adj:
   
   mov esi,[mmap_adj.a]
   mov edi,mmap.tmp
-  mov ecx,edx
+  mov ecx,[mmap_adj.s]
   rep movsb
   
   mov esi,[mmap_adj.b]
   mov edi,[mmap_adj.a]
-  mov ecx,edx
+  mov ecx,[mmap_adj.s]
   rep movsb
   
   mov esi,mmap.tmp
   mov edi,[mmap_adj.b]
-  mov ecx,edx
+  mov ecx,[mmap_adj.s]
   rep movsb
   
   pop esi
   mov edi,[mmap_adj.b]
 
 .outer_next:
-  add edi,edx
+  add edi,[mmap_adj.s]
   add edi,4
   
   cmp dword [edi + MMAP_SIZE],0 ; Loop until the first empty entry
@@ -143,7 +155,7 @@ mmap_adj:
   pop edi
   pop edx
 
-  add esp,8
+  add esp,12
   pop ebp
   ret
 
