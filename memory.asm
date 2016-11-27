@@ -15,6 +15,8 @@ bits 16
 
 ; mmap_memprobe: detect memory layout
 mmap_memprobe:
+  ; TODO: remove ret
+  ret
   push bp
   mov  bp,sp
 
@@ -68,23 +70,32 @@ bits 32
 mmap_adj:
   push ebp
   mov  ebp,esp
-  sub  esp,12
+  sub  esp,20
   
 %define mmap_adj.a (ebp -  4)
 %define mmap_adj.b (ebp -  8)
+%define mmap_adj.lo mmap_adj.a
+%define mmap_adj.hi mmap_adj.b
 %define mmap_adj.s (ebp - 12)
+%define mmap_adj.n (ebp - 16)
+%define mmap_adj.c (ebp - 20)
   
   push ebx
   push edi
   push esi
+  
+  cld
 
-  mov edx,[mmap]        ; Load size
-  test edx,edx
-  jz .return            ; The first entry has zero size, do nothing
+  mov eax,[mmap]            ; Load size
+  test eax,eax
+  jz .return                ; The first entry has zero size, do nothing
   
-  mov [mmap_adj.s],edx  ; Store size
+  ; TODO: test if the second one is the terminator
   
-  mov edi,(mmap + 4)    ; Load starting destination
+  mov [mmap_adj.s],eax      ; Store size
+  mov dword [mmap_adj.n],0  ; Init elements count
+  
+  mov edi,(mmap + 4)        ; Load starting destination
   
   ; Sort by base address
 .outer_loop:
@@ -147,15 +158,138 @@ mmap_adj:
   add edi,[mmap_adj.s]
   add edi,4
   
+  inc dword [mmap_adj.n]
   cmp dword [edi + MMAP_SIZE],0 ; Loop until the first empty entry
-  jne .outer_loop               ;
+  jne .outer_loop
+
+  ; Clip or joint overlapping and adjacent areas
+  mov eax,[mmap_adj.n]  ; Copy n in c
+  mov [mmap_adj.c],eax  ;
+  
+  mov esi,(mmap + 4)    ; esi is the first entry
+  mov edi,esi
+  add edi,[mmap_adj.s]  ; edi is the second one
+  add edi,4
+  
+.clip_loop:
+  dec dword [mmap_adj.c]
+  
+  ; TODO: rewrite using cmp
+  ; Compute esi.base + esi.length in edx:eax
+  mov eax,[esi + MMAP_BASE_LO]
+  mov edx,[esi + MMAP_BASE_HI]
+  
+  add eax,[esi + MMAP_LEN_LO]
+  adc edx,[esi + MMAP_LEN_HI]
+  
+  ; If (esi.base + esi.length) < edi.base there's nothing to do
+  cmp edx,[edi + MMAP_BASE_HI]
+  jb .clip_next
+  
+  cmp eax,[edi * MMAP_BASE_LO]
+  jb .clip_next
+
+  ; Choose to join or clip, and which way
+  mov eax,[mmap_adj.s]  ; First, find out how many dwords wide the type
+  sub eax,16            ; and extra fields are, by loading the structure's
+  shr eax,2             ; size in bytes, then subtracting 16 (the width of
+  mov ecx,eax           ; the first two elements in bytes), then dividing
+                        ; by 4 to convert to dwords
+  push esi
+  push edi
+  
+  add esi,MMAP_TYPE
+  add edi,MMAP_TYPE
+  
+  repe cmpsd  ; Compare the entries from the type on
+  
+  pop edi
+  pop esi
+  
+  ja .clip_second   ; The entry with the lowest type number gets clipped
+  jb .clip_first    ;
+  
+  ; If all type fields were equal, join the entries
+  ; Find the rightmost limit (likely the second)
+  ; Compute the first limit
+  mov eax,[esi + MMAP_BASE_LO]
+  mov edx,[esi + MMAP_BASE_HI]
+  
+  add eax,[esi + MMAP_LEN_LO]
+  adc edx,[esi + MMAP_LEN_HI]
+  
+  mov [mmap_adj.lo],eax
+  mov [mmap_adj.hi],edx
+
+  ; Compute the second limit
+  mov eax,[edi + MMAP_BASE_LO]
+  mov edx,[edi + MMAP_BASE_HI]
+  
+  add eax,[edi + MMAP_LEN_LO]
+  adc edx,[edi + MMAP_LEN_HI]
+  
+  ; Compare
+  cmp edx,[mmap_adj.hi]
+  ja  .edit_entry
+  
+  cmp eax,[mmap_adj.lo]
+  jae .edit_entry
+  
+  ; If the highest value is in memory, load it back to edx:eax
+  mov eax,[mmap_adj.lo]
+  mov eax,[mmap_adj.hi]
+
+  ; Now recompute the correct length and store it to the first entry  
+.edit_entry:
+  sub eax,[esi + MMAP_BASE_LO]
+  sbb edx,[esi + MMAP_BASE_HI]
+  
+  mov [esi + MMAP_LEN_LO],eax
+  mov [esi + MMAP_LEN_HI],edx
+  
+  ; Then delete the second entry
+  push esi
+  push edi
+  
+  xchg esi,edi
+  add esi,[mmap_adj.s]
+  add edi,[mmap_adj.s]
+  
+  mov eax,[mmap_adj.c]
+  mul dword [mmap_adj.s]
+  mov ecx,eax
+  
+  rep movsb
+  
+  pop edi
+  pop esi
+  
+  jmp .clip_next_noinc
+  
+  ; Clip the first entry
+  .clip_first:
+  ; TODO
+  
+  ; Clip the second entry
+  .clip_second:
+  ; TODO
+
+.clip_next:
+  mov esi,edi               ; Increment both pointers
+  add edi,[mmap_adj.s]      ;
+  add edi,4                 ;
+
+.clip_next_noinc:
+  mov eax,[edi + MMAP_SIZE] ; Loop until the second pointer
+  test eax,eax              ; points to the terminator entry
+  jnz .clip_loop            ;
 
 .return:
   pop esi
   pop edi
   pop edx
 
-  add esp,12
+  add esp,20
   pop ebp
   ret
 
@@ -226,9 +360,31 @@ mmap_print:
 section .data
 align 8
 
-mmap:                       ; mmap has space for 16 wide (24 bytes)
-  times 16 * (24 + 4) db 0  ; entries and their associated sizes (4 bytes)
-  dd 0                      ; A zero-terminator
+;mmap:                       ; mmap has space for 32 wide (24 bytes)
+;  times 32 * (24 + 4) db 0  ; entries and their associated sizes (4 bytes)
+;  dd 0                      ; A zero-terminator
+
+; Debug
+mmap:
+  dd 20
+  dq 0x0F000000
+  dq 0x01000000
+  dd 3
+  
+  dd 20
+  dq 0x00000000
+  dq 0x00010000
+  dd 1
+  
+  dd 20
+  dq 0x00000FE0
+  dq 0x00000100
+  dd 1
+  
+  dd 0
+  dq 0
+  dq 0
+  dd 0
 
 .tmp:
   times 24 db 0             ; Swapping space for mmap_adj

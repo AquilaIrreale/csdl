@@ -3,4 +3,5 @@
 *.dump
 chdiff
 chdiff.c
+loop
 

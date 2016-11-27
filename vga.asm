@@ -86,7 +86,8 @@ vga_scroll:
   mul edx                 ; Multiply by NCOLS
   mov edx,eax
   mov ecx,eax             ; Now edx and ecx hold the number of words to shift
-  
+
+  cld  
   rep movsw               ; Shift the buffer by ecx words
   
   ; Compute how many words to wipe
