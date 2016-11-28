@@ -73,20 +73,18 @@ load_segments:
   call mmap_adj
   
   ; Debug section
-  push 0x10
-  call cmos_read
-  add esp,4
-  mov edx,eax
-  shr al,4
-  add al,'0'
-  mov ah,0x07
-  mov [0xB8000],ax
-  
-  mov al,dl
-  and al,0x0F
-  add al,'0'
-  mov [0xB8002],ax
+  call mmap_print
+  push dword 0x0A
+  call putc
 
+  mov edi,mmap.entry1
+  mov eax,1
+  call mmap_grow
+  
+  call mmap_print
+  
+  jmp .hang
+  
   mov ecx,10000
 .label:
   push ecx
