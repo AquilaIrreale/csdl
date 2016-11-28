@@ -162,7 +162,7 @@ mmap_adj:
   cmp dword [edi + MMAP_SIZE],0 ; Loop until the first empty entry
   jne .outer_loop
 
-  ; Clip or joint overlapping and adjacent areas
+  ; Clip or join overlapping and adjacent areas
   mov eax,[mmap_adj.n]  ; Copy n in c
   mov [mmap_adj.c],eax  ;
   
@@ -174,7 +174,6 @@ mmap_adj:
 .clip_loop:
   dec dword [mmap_adj.c]
   
-  ; TODO: rewrite using cmp
   ; Compute esi.base + esi.length in edx:eax
   mov eax,[esi + MMAP_BASE_LO]
   mov edx,[esi + MMAP_BASE_HI]
@@ -185,11 +184,14 @@ mmap_adj:
   ; If (esi.base + esi.length) < edi.base there's nothing to do
   cmp edx,[edi + MMAP_BASE_HI]
   jb .clip_next
+  ja .choose
   
-  cmp eax,[edi * MMAP_BASE_LO]
+  ; If msdwords are equal, check lsdwords
+  cmp eax,[edi + MMAP_BASE_LO]
   jb .clip_next
 
   ; Choose to join or clip, and which way
+.choose:
   mov eax,[mmap_adj.s]  ; First, find out how many dwords wide the type
   sub eax,16            ; and extra fields are, by loading the structure's
   shr eax,2             ; size in bytes, then subtracting 16 (the width of
@@ -231,13 +233,15 @@ mmap_adj:
   ; Compare
   cmp edx,[mmap_adj.hi]
   ja  .edit_entry
+  jb  .load_back
   
   cmp eax,[mmap_adj.lo]
   jae .edit_entry
   
   ; If the highest value is in memory, load it back to edx:eax
+.load_back
   mov eax,[mmap_adj.lo]
-  mov eax,[mmap_adj.hi]
+  mov edx,[mmap_adj.hi]
 
   ; Now recompute the correct length and store it to the first entry  
 .edit_entry:
@@ -367,18 +371,18 @@ align 8
 ; Debug
 mmap:
   dd 20
-  dq 0x0F000000
-  dq 0x01000000
+  dq 0x000000000F000000
+  dq 0x0000000001000000
   dd 3
   
   dd 20
-  dq 0x00000000
-  dq 0x00010000
+  dq 0x000000000000FFFF
+  dq 0x0000000000000002
   dd 1
   
   dd 20
-  dq 0x00000FE0
-  dq 0x00000100
+  dq 0x0000000000000000
+  dq 0x0000000000010000
   dd 1
   
   dd 0

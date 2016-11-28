@@ -2,7 +2,7 @@
 
 LOOP=$(cat loop)
 
-if [ $1 = -d ]; then
+if [ $1 ] && [ $1 = -d ]; then
     DEBUG='-S -s'
 else
     DEBUG=''
