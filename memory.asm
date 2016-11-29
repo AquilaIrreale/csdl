@@ -167,7 +167,8 @@ mmap_adj:
   jne .outer_loop
 
   ; Clip or join overlapping and adjacent areas
-  mov eax,[mmap_adj.n]  ; Copy n in c
+  mov eax,[mmap_adj.n]  ; Load c with the number of entries past the second
+  sub eax,2             ;
   mov [mmap_adj.c],eax  ;
   
   mov esi,(mmap + 4)    ; esi is the first entry
@@ -176,8 +177,6 @@ mmap_adj:
   add edi,4
   
 .clip_loop:
-  dec dword [mmap_adj.c]
-  
   ; Compute esi.base + esi.length in edx:eax
   mov eax,[esi + MMAP_BASE_LO]
   mov edx,[esi + MMAP_BASE_HI]
@@ -228,30 +227,35 @@ mmap_adj:
   mov [esi + MMAP_LEN_HI],edx
   
   ; Then delete the second entry
-  push esi
-  push edi
-  
-  xchg esi,edi
-  add esi,[mmap_adj.s]
-  add edi,[mmap_adj.s]
-  
   mov eax,[mmap_adj.c]
-  mul dword [mmap_adj.s]
-  mov ecx,eax
-  
-  rep movsb
-  
-  pop edi
-  pop esi
+  call mmap_shrink
   
   jmp .clip_next_noinc
   
   ; Clip the first entry
-  .clip_first:
+.clip_first:
   ; TODO
   
   ; Clip the second entry
-  .clip_second:
+.clip_second:
+  call mmap_rmost     ; If the second entry is completely inside the first
+  test ecx,ecx        ; delete it
+  js .delete_second   ;
+  jz .delete_second   ;
+  
+  ; Else set the second entry to start right after the end of the first
+  mov eax,[esi + MMAP_BASE_LO]
+  mov edx,[esi + MMAP_BASE_HI]
+  
+  add eax,[esi + MMAP_LEN_LO]
+  adc edx,[esi + MMAP_LEN_HI]
+  
+  mov [edi + MMAP_BASE_LO],eax
+  mov [edi + MMAP_BASE_HI],edx
+  
+  jmp .clip_next
+
+.delete_second:
   
 
 .clip_next:
@@ -260,7 +264,9 @@ mmap_adj:
   add edi,4                 ;
 
 .clip_next_noinc:
-  mov eax,[edi + MMAP_SIZE] ; Loop until the second pointer
+  dec dword [mmap_adj.c]    ; The number of entries past the current two
+                            ; decreases by one eache iteration
+  mov eax,[edi + MMAP_SIZE] ; Loop until the second pointer TODO: maybe loop on c?
   test eax,eax              ; points to the terminator entry
   jnz .clip_loop            ;
 
@@ -285,7 +291,7 @@ mmap_adj:
 ; Return:
 ;   eax = rightmost limit (lsdword)
 ;   edx = rightmost limit (msdword)
-;   CF  = 0 for first entry, 1 for second entry
+;   ecx = -1 for first entry, 1 for second entry, 0 for neither one
 mmap_rmost:
 ; Compute the first limit
   mov eax,[esi + MMAP_BASE_LO]
@@ -310,19 +316,56 @@ mmap_rmost:
   jb  .first
   
   cmp eax,[mmap_adj.lo]
-  jae .second
+  ja  .second
+  je  .neither
   
   ; If the highest value is the first, load it back to edx:eax
   ; then clear the CF
 .first:
   mov eax,[mmap_adj.lo]
   mov edx,[mmap_adj.hi]
-  clc
+  mov ecx,-1
   ret
 
   ; If the highest value is already in edx:eax, just set the CF
 .second:
-  stc
+  mov ecx,1
+  ret
+
+.neither:
+  mov ecx,0
+  ret
+
+; Function (nonstd)
+; mmap_shrink
+; Shrink the mmap
+; Arguments:
+;   edi = reference entry (the entry which will be removed)
+;   eax = entries after reference
+; Return:
+;   none
+mmap_shrink:
+  push esi
+  push edi
+  
+  inc eax                   ; Add one entry for the terminator
+  mov edx,[edi + MMAP_SIZE] ; Load entry size
+  add edx,4
+  mul edx                   ; eax = n_entries * entry_size
+  mov ecx,eax
+  
+  mov eax,edi
+  sub eax,4
+  mov edi,eax
+  
+  mov eax,[edi]             ; Load entry size (again)
+  lea esi,[edi + eax + 4]
+  
+  cld
+  rep movsb
+  
+  pop edi
+  pop esi
   ret
 
 ; Function (nonstd)
@@ -354,8 +397,7 @@ mmap_grow:
   std
   rep movsb ; Move all entries past reference one step forward
   
-  pop edi
-  push edi
+  mov edi,[esp]
   
   lea edi,[edi + edx + 4]   ; edi points to the new entry
   mov [edi + MMAP_SIZE],edx ; Set new entry size
@@ -451,7 +493,7 @@ mmap:
 
   dd 20
 .entry1:
-  dq 0x00000000000FFFFF
+  dq 0x000000000000FFFF
   dq 0x0000000000000002
   dd 1
 
@@ -459,8 +501,13 @@ mmap:
   dq 0x000000000F000000
   dq 0x0000000001000000
   dd 3
+  
+  dd 20
+  dq 0x0000000000000200
+  dq 0x0000000000000E00
+  dd 1
 
-  times (24 * 13) db 0
+  times (24 * 12) db 0
   dd 0
 
 .tmp:

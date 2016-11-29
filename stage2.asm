@@ -69,18 +69,16 @@ load_segments:
   ; Init VGA
   call vga_init
   
-  ; Adjust memory map
-  call mmap_adj
-  
   ; Debug section
   call mmap_print
   push dword 0x0A
   call putc
-
-  mov edi,mmap.entry1
-  mov eax,1
-  call mmap_grow
+  add  esp,4
   
+  ; Adjust memory map
+  call mmap_adj
+  
+  ; Debug section
   call mmap_print
   
   jmp .hang
