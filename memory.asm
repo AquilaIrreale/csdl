@@ -16,8 +16,6 @@ bits 16
 ; Function (cdecl)
 ; mmap_memprobe: detect memory layout
 mmap_memprobe:
-  ; TODO: remove ret
-  ret
   push bp
   mov  bp,sp
 
@@ -234,7 +232,72 @@ mmap_adj:
   
   ; Clip the first entry
 .clip_first:
-  ; TODO
+  call mmap_rmost
+  push edx
+  push eax
+  push ecx
+  
+  mov eax,[edi + MMAP_BASE_LO]
+  mov edx,[edi + MMAP_BASE_HI]
+  
+  sub eax,[esi + MMAP_BASE_LO]
+  sbb edx,[esi + MMAP_BASE_HI]
+  
+  mov [esi + MMAP_LEN_LO],eax
+  mov [esi + MMAP_LEN_HI],edx
+  
+  pop eax
+  test eax,eax
+  js .make_third
+  
+  add esp,8
+  
+  jmp .clip_next
+
+.make_third:
+  mov eax,[mmap_adj.c]
+  call mmap_grow
+  
+  mov eax,[mmap_adj.s]
+  lea edi,[edi + eax + 4]
+  
+  mov  ecx,eax
+  sub  eax,16
+  xchg eax,ecx
+  
+  push edi
+  push esi
+  
+  add edi,16
+  add esi,16
+  
+  cld
+  rep movsb
+  
+  pop esi
+  pop edi
+  
+  lea esi,[esi + eax + 4]
+  
+  mov eax,[esi + MMAP_BASE_LO]
+  mov edx,[esi + MMAP_BASE_HI]
+  
+  add eax,[esi + MMAP_LEN_LO]
+  adc edx,[esi + MMAP_LEN_HI]
+  
+  mov [edi + MMAP_BASE_LO],eax
+  mov [edi + MMAP_BASE_HI],edx
+  
+  pop eax
+  pop edx
+  
+  sub eax,[edi + MMAP_BASE_LO]
+  sbb edx,[edi + MMAP_BASE_HI]
+  
+  mov [edi + MMAP_LEN_LO],eax
+  mov [edi + MMAP_LEN_HI],edx
+  
+  jmp .clip_next
   
   ; Clip the second entry
 .clip_second:
@@ -280,11 +343,12 @@ mmap_adj:
   add edi,4                 ;
 
 .clip_next_noinc:
+  cmp dword [mmap_adj.c],0  ; Loop until there are no more entries
+  je .return                ; past the current two
+  
   dec dword [mmap_adj.c]    ; The number of entries past the current two
                             ; decreases by one eache iteration
-  mov eax,[edi + MMAP_SIZE] ; Loop until the second pointer TODO: maybe loop on c?
-  test eax,eax              ; points to the terminator entry
-  jnz .clip_loop            ;
+  jmp .clip_loop
 
 .return:
   pop esi
@@ -496,34 +560,9 @@ mmap_print:
 section .data
 align 4
 
-;mmap:                       ; mmap has space for 32 wide (24 bytes)
-;  times 32 * (24 + 4) db 0  ; entries and their associated sizes (4 bytes)
-;  dd 0                      ; A zero-terminator
-
-; Debug
-mmap:
-  dd 20
-  dq 0x0000000000000000
-  dq 0x0000000000010000
-  dd 2
-
-  dd 20
-  dq 0x000000000000FFFF
-  dq 0x0000000000000200
-  dd 1
-
-  dd 20
-  dq 0x000000000F000000
-  dq 0x0000000001000000
-  dd 3
-  
-  dd 20
-  dq 0x0000000000000200
-  dq 0x0000000000000E00
-  dd 1
-
-  times (24 * 12) db 0
-  dd 0
+mmap:                       ; mmap has space for 32 wide (24 bytes)
+  times 32 * (24 + 4) db 0  ; entries and their associated sizes (4 bytes)
+  dd 0                      ; A zero-terminator
 
 .tmp:
   align 4

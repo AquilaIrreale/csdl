@@ -69,7 +69,11 @@ load_segments:
   ; Init VGA
   call vga_init
   
-  ; Debug section
+  ; Print raw mmap
+  push raw_mmap
+  call puts
+  add esp,4
+  
   call mmap_print
   push dword 0x0A
   call putc
@@ -78,68 +82,15 @@ load_segments:
   ; Adjust memory map
   call mmap_adj
   
-  ; Debug section
+  ; Print adjusted mmap
+  push adj_mmap
+  call puts
+  add esp,4
+  
   call mmap_print
-  
-  jmp .hang
-  
-  mov ecx,10000
-.label:
-  push ecx
-  push str3
-  call puts
-  add  esp,4
-  pop  ecx
-  loop .label
-  
-  push str4
-  call puts
-  add  esp,4
-  
-  push 0x2BADB00F
-  push 4
-  call putx
-  add  esp,8
-  
-  push str5
-  call puts
-  add esp,4
-  
-  push 0x2BADB00F
-  call putu
-  add esp,4
-  
-  push str6
-  call puts
-  add esp,4
-  
-  push -115200
-  call putd
-  add esp,4
-  
-  push str7
-  call puts
-  add esp,4
-  
-  mov eax,[mmap]
-  test eax,eax
-  jz .nomem
-  
-  push str8
-  jmp .afternomem
-  
-.nomem:
-  push str9
-
-.afternomem:
-  call puts
-  add esp,4
-  
   push dword 0x0A
   call putc
-  add esp,4
-  
-  call mmap_print
+  add  esp,4
 
 .hang:
   hlt
@@ -175,33 +126,11 @@ gdt_2:
   db BASE >> 24            ; Base  24-31
 gdt_end:
 
-; DEBUG
-str1:
-  db 'STAGE2... START!', 0
+raw_mmap:
+  db "BIOS memory map:", 0x0A, 0
 
-str2:
-  db 'ALL RIGHT!', 0
-
-str3:
-  db 'TEST TEST PROVA PROVA --- ', 0
-
-str4:
-  db 'ALL SAID AND DONE! --- Hello world... ', 0
-
-str5:
-  db ' == ', 0
-
-str6:
-  db ' --- ', 0
-
-str7:
-  db 0x0A, 'Memory found: ', 0
-
-str8:
-  db 'YES', 0
-
-str9:
-  db 'NO', 0
+adj_mmap:
+  db "Adjusted memory map:", 0x0A, 0
 
 section .stack align=4
 stack_bottom:
