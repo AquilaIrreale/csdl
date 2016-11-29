@@ -244,6 +244,9 @@ mmap_adj:
   jz .delete_second   ;
   
   ; Else set the second entry to start right after the end of the first
+  push eax
+  push edx
+  
   mov eax,[esi + MMAP_BASE_LO]
   mov edx,[esi + MMAP_BASE_HI]
   
@@ -253,10 +256,23 @@ mmap_adj:
   mov [edi + MMAP_BASE_LO],eax
   mov [edi + MMAP_BASE_HI],edx
   
+  ; Then adjust the length
+  pop edx
+  pop eax
+  
+  sub eax,[edi + MMAP_BASE_LO]
+  sbb edx,[edi + MMAP_BASE_HI]
+  
+  mov [edi + MMAP_LEN_LO],eax
+  mov [edi + MMAP_LEN_HI],edx
+  
   jmp .clip_next
 
 .delete_second:
+  mov eax,[mmap_adj.c]
+  call mmap_shrink
   
+  jmp .clip_next_noinc
 
 .clip_next:
   mov esi,edi               ; Increment both pointers
@@ -489,12 +505,11 @@ mmap:
   dd 20
   dq 0x0000000000000000
   dq 0x0000000000010000
-  dd 1
+  dd 2
 
   dd 20
-.entry1:
   dq 0x000000000000FFFF
-  dq 0x0000000000000002
+  dq 0x0000000000000200
   dd 1
 
   dd 20
