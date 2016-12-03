@@ -8,6 +8,6 @@ else
     DEBUG=''
 fi
 
-sudo qemu-system-i386 -fda $LOOP $DEBUG
+qemu-system-i386 -fda $LOOP $DEBUG
 
 
